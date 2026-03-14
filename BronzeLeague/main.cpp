@@ -123,9 +123,16 @@ string simpleBfs(const Game & game, const vector<string> & map, const Snake & st
 
         Coord dir[4] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
         for(auto d : dir){
-            if(q.snake.h.x + d.x == game.width || q.snake.h.x + d.x == -1 || q.snake.h.y + d.y == game.height || q.snake.h.y + d.y == -1) continue;
-            if(map[q.snake.h.y + d.y][q.snake.h.x + d.x] == '#') continue;
-            if(q.snake.h.x + d.x == q.snake.b[1].x && q.snake.h.y + d.y == q.snake.b[1].y) continue;
+            bool valid {1};
+            if(q.snake.h.x + d.x == game.width || q.snake.h.x + d.x == -1 || q.snake.h.y + d.y == game.height || q.snake.h.y + d.y == -1) valid = 0;
+            if(map[q.snake.h.y + d.y][q.snake.h.x + d.x] == '#' || map[q.snake.h.y + d.y][q.snake.h.x + d.x] == '0') valid = 0;
+            for(size_t i {}; i < q.snake.b.size() - 1; ++i){   //  -1 because skip last body part (it moves)
+                if(q.snake.b[i].x == q.snake.h.x + d.x && q.snake.b[i].y == q.snake.h.y + d.y){
+                    valid = 0;
+                }
+            }
+            if(q.snake.h.x + d.x == q.snake.b[1].x && q.snake.h.y + d.y == q.snake.b[1].y) valid = 0;
+            if(!valid) continue;
             Snake tempSn {q.snake};
             double tempPw {q.points - 0.01};  // move penalty
             if(map[q.snake.h.y + d.y][q.snake.h.x + d.x] == 'P') tempPw += 1;
@@ -210,7 +217,15 @@ int main()
         //  ----------  MAIN LOGIC
         for(auto & i : snake){
             if(!i.mySnake) continue;
-            i.nextMove = simpleBfs(game, map, i, 3);
+            vector<string> mapSn {map};
+            for(auto j : snake){
+                if(i.id == j.id) continue;
+                for(size_t z {}; z < j.b.size() - 1; ++z){       // -1 because we dont need the last body part (it moves)
+                    mapSn[j.b[z].y][j.b[z].x] = '0';
+                }
+            }
+            PRINT(mapSn);
+            i.nextMove = simpleBfs(game, mapSn, i, 3);
         }
         
         string command {};
@@ -224,8 +239,8 @@ int main()
         }
         cout << command << endl;
 
-        PRINT(map);
-        PRINT(game);
-        PRINT(snake);
+        //PRINT(map);
+        //PRINT(game);
+        //PRINT(snake);
     }
 }
