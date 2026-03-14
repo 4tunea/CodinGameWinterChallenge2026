@@ -74,19 +74,42 @@ void PRINT(const vector<string> & map){
 }
 //  --------------  DEBUG END
 
-vector<Coord> bodyMove(const vector<string> & map, const vector<Coord> & b, Coord d){
+bool isFalling(const Game & game, const vector<string> & fullMap, const vector<Coord> & b){
+    bool falling {true};
+    for(auto i : b){
+        if(i.y + 1 >= game.height) continue;
+        if(fullMap[i.y + 1][i.x] != '.'){
+            falling = false;
+        }
+    }
+    /*   DEBUG
+    if(falling){cerr << "\nFALLING: ";
+        for(auto j : b){
+                cerr << j.x << ":" << j.y << " | ";
+        }
+        cerr << '\n';
+    }
+    */
+    return falling;
+}
+
+vector<Coord> bodyMove(const Game & game, const vector<string> & map, const vector<Coord> & b, Coord d, bool tookPower){
     vector<Coord> body {b};
+    if(tookPower) body.push_back(body[body.size()-1]);
     for(size_t i {}; i < b.size(); ++i){
         if(i == 0){
             body[i] = {b[i].x + d.x, b[i].y + d.y};
             continue;
         }
         body[i] = {b[i-1].x, b[i-1].y};
+    } 
+    if(isFalling(game, map, body)){
+        
     }
     return body;
 }
 
-string simpleBfs(const Game & game, const vector<string> & map, const Snake & startSnake, int maxDepth){
+string simpleBfs(const Game & game, const vector<string> & map, const vector<string> & fullMap, const Snake & startSnake, int maxDepth){
     string move {"WAIT"};
     
     struct Que{
@@ -135,10 +158,14 @@ string simpleBfs(const Game & game, const vector<string> & map, const Snake & st
             if(!valid) continue;
             Snake tempSn {q.snake};
             double tempPw {q.points - 0.01};  // move penalty
-            if(map[q.snake.h.y + d.y][q.snake.h.x + d.x] == 'P') tempPw += 1;
+            bool tookPower {};
+            if(map[q.snake.h.y + d.y][q.snake.h.x + d.x] == 'P'){
+                tempPw += 1;
+                tookPower = true;
+            }
             tempSn.h.y += d.y;
             tempSn.h.x += d.x;
-            tempSn.b = bodyMove(map, q.snake.b, d);
+            tempSn.b = bodyMove(game, fullMap, q.snake.b, d, tookPower);
             if(q.origin.x == -1){
                 que.push({tempSn, tempPw, tempSn.h, q.depth + 1});
             } else {
@@ -218,14 +245,17 @@ int main()
         for(auto & i : snake){
             if(!i.mySnake) continue;
             vector<string> mapSn {map};
+            vector<string> fullMap {map};
             for(auto j : snake){
                 if(i.id == j.id) continue;
-                for(size_t z {}; z < j.b.size() - 1; ++z){       // -1 because we dont need the last body part (it moves)
-                    mapSn[j.b[z].y][j.b[z].x] = '0';
+                for(size_t z {}; z < j.b.size(); ++z){
+                    if(z != j.b.size() - 1) mapSn[j.b[z].y][j.b[z].x] = '0';
+                    fullMap[j.b[z].y][j.b[z].x] = '0';
                 }
             }
             PRINT(mapSn);
-            i.nextMove = simpleBfs(game, mapSn, i, 3);
+            PRINT(fullMap);
+            i.nextMove = simpleBfs(game, mapSn, fullMap, i, 3);
         }
         
         string command {};
@@ -238,9 +268,5 @@ int main()
             }
         }
         cout << command << endl;
-
-        //PRINT(map);
-        //PRINT(game);
-        //PRINT(snake);
     }
 }
