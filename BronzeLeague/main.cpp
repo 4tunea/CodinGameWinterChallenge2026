@@ -138,7 +138,7 @@ vector<Coord> bodyMove(const Game & game, const vector<string> & map, const vect
     return body;
 }
 
-string simpleBfs(const Game & game, const vector<string> & map, const vector<string> & fullMap, const Snake & startSnake, int maxDepth){
+string simpleBfs(const Game & game, const vector<string> & map, const vector<string> & fullMap, const Snake & startSnake, const vector<Coord> & powers, int maxDepth){
     string move {"WAIT"};
     
     struct Que{
@@ -298,7 +298,7 @@ int main()
                 fullMap[i.y][i.x] = '0';
             }
 
-            i.nextMove = simpleBfs(game, mapSn, fullMap, i, 5);
+            i.nextMove = simpleBfs(game, mapSn, fullMap, i, powers, 5);
             
             if(i.nextMove == "UP"){
                 nextMoves.push_back({i.h.x, i.h.y - 1});
