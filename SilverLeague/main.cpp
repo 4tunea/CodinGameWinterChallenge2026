@@ -28,6 +28,7 @@ struct Game{
     int snPP {};              //  snakebots per player
     int pwCnt {};             //  power source count
     int snCnt {};             //  snakebot count
+    bool firstTurn {true};        //  true if the first turn is active (1s time)
 };
 
 struct Snake{
@@ -72,6 +73,16 @@ void PRINT(const vector<string> & map){
     }
     cerr<<'\n';
 }
+
+void PRINT(const vector<vector<int>> & mp){
+    for(auto i : mp){
+        for(auto j : i){
+            cerr << j << ' ';
+        }
+        cerr << '\n';
+    }
+    cerr << '\n';
+}
 //  --------------  DEBUG END
 
 bool isFalling(const Game & game, const vector<string> & fullMap, const vector<Coord> & b){
@@ -108,10 +119,10 @@ void doGravityWork(const Game & game, const vector<string> & mapFull, vector<Coo
         }
     }
 
-    for(auto i : b){
-        cerr << "|" <<i.x << "," << i.y<<"|";
-    }
-    cerr<<"\n"<<minFall<<"\n";
+    //for(auto i : b){
+    //    cerr << "|" <<i.x << "," << i.y<<"|";
+    //}
+    //cerr<<"\n"<<minFall<<"\n";
 
     for(auto & i : b){
         i.y += minFall;
@@ -134,7 +145,7 @@ vector<Coord> bodyMove(const Game & game, const vector<string> & map, const vect
         doGravityWork(game, map, body);
     }
     
-    for(auto i : body){cerr << "|" <<i.x << "," << i.y<<"|";}cerr << "\n\n";
+    //for(auto i : body){cerr << "|" <<i.x << "," << i.y<<"|";}cerr << "\n\n";
     return body;
 }
 
@@ -214,6 +225,36 @@ string simpleBfs(const Game & game, const vector<string> & map, const vector<str
     return move;
 }
 
+void findPowerDistance(const Game & game, vector<vector<int>> & powerMap, Coord start, const vector<string> & field) {
+    for (auto &row : powerMap) fill(row.begin(), row.end(), -1);
+
+    struct Que {
+        Coord p {};
+        int d {};
+    };
+    queue<Que> que;
+    que.push({start, 0});
+    powerMap[start.y][start.x] = 0;
+
+    const Coord dirs[4] = {{0, 1}, {1, 0}, {-1, 0}, {0, -1}};
+
+    while(!que.empty()){
+        Que q = que.front();
+        que.pop();
+
+        for(const auto& dir : dirs){
+            int nx = q.p.x + dir.x;
+            int ny = q.p.y + dir.y;
+            if(nx < 0 || nx >= game.width || ny < 0 || ny >= game.height) continue;
+            if(field[ny][nx] != '.') continue;
+            if(powerMap[ny][nx] == -1) {
+                powerMap[ny][nx] = q.d + 1;
+                que.push({{nx, ny}, q.d + 1});
+            }
+        }
+    }
+}
+
 int main()
 {
     Game game {};
@@ -238,6 +279,8 @@ int main()
         cin >> opp_snakebot_id; cin.ignore();
         oppSn.push_back(opp_snakebot_id);
     }
+
+    vector<vector<vector<int>>> powerDistanceMap;
 
     // game loop
     while (1) {
@@ -276,6 +319,22 @@ int main()
                 }
             }
             snake.push_back({snakebot_id, body, b[0], b, "WAIT", mySnake});
+        }
+
+        //   1 sek bonus fiirst turn usage
+        if(game.firstTurn){
+            game.firstTurn = 0;
+            powerDistanceMap.resize(game.pwCnt);
+            for(auto& i : powerDistanceMap){
+                i.resize(game.height);
+                for(auto& j : i){
+                    j.resize(game.width);
+                }
+            }
+            for(size_t i {}; i < powerDistanceMap.size(); ++i){
+                findPowerDistance(game, powerDistanceMap[i], {powers[i].x, powers[i].y}, field);
+                PRINT(powerDistanceMap[i]);
+            }
         }
 
         //  ----------  MAIN LOGIC
