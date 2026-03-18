@@ -21,6 +21,16 @@ struct Coord{
     }
 };
 
+//  unordered_map hashing voodoo
+namespace std {
+    template <>
+    struct hash<Coord> {
+        size_t operator()(const Coord& c) const {
+            return hash<int>()(c.x) ^ (hash<int>()(c.y) << 1);
+        }
+    };
+}
+
 struct Game{
     int myId {};              //  my id
     int width {};             //  map width
@@ -149,7 +159,17 @@ vector<Coord> bodyMove(const Game & game, const vector<string> & map, const vect
     return body;
 }
 
-string simpleBfs(const Game & game, const vector<string> & map, const vector<string> & fullMap, const Snake & startSnake, const vector<Coord> & powers, int maxDepth){
+double calculatePoints(const vector<string> & map, bool tookPower, int depth, int  distToPower){
+    double points = 0;
+    if(tookPower) {
+        points += 50000 - depth * 1000;
+    }
+    points -= distToPower; 
+    points += 100;
+    return points;
+}
+
+string simpleBfs(const Game & game, const vector<string> & mp, const vector<string> & fullMap, const Snake & startSnake, const unordered_map<Coord, vector<vector<int>>> & powerDistanceMap, const vector<Coord> & powers, int maxDepth){
     string move {"WAIT"};
     
     struct Que{
@@ -159,8 +179,9 @@ string simpleBfs(const Game & game, const vector<string> & map, const vector<str
         int depth {};
     };
     queue<Que> que;
-    que.push({startSnake, 100, {-1, -1}, 0});
+    que.push({startSnake, 10000, {-1, -1}, 0});
     double maxPointsFound {};
+    
     while(!que.empty()){
         Que q {que.front()};
         que.pop();
@@ -193,10 +214,19 @@ string simpleBfs(const Game & game, const vector<string> & map, const vector<str
             dir[3] = temp;
         }
         
-        for(auto d : dir){
+        int minDistance {INT_MAX};
+        Coord target {-1, -1};
+        for(auto & i : powers){
+            if(minDistance > powerDistanceMap.at(i)[q.snake.h.y][q.snake.h.x]){
+                minDistance = powerDistanceMap.at(i)[q.snake.h.y][q.snake.h.x];
+                target = {i};
+            }
+        }
+
+        for(auto & d : dir){
             bool valid {1};
             if(q.snake.h.x + d.x >= game.width || q.snake.h.x + d.x < 0 || q.snake.h.y + d.y >= game.height || q.snake.h.y + d.y < 0) continue;
-            if(map[q.snake.h.y + d.y][q.snake.h.x + d.x] == '#' || map[q.snake.h.y + d.y][q.snake.h.x + d.x] == '0') continue;
+            if(mp[q.snake.h.y + d.y][q.snake.h.x + d.x] == '#' || mp[q.snake.h.y + d.y][q.snake.h.x + d.x] == '0') continue;
             for(size_t i {}; i < q.snake.b.size() - 1; ++i){   //  -1 because skip last body part (it moves)
                 if(q.snake.b[i].x == q.snake.h.x + d.x && q.snake.b[i].y == q.snake.h.y + d.y){
                     valid = 0;
@@ -204,13 +234,13 @@ string simpleBfs(const Game & game, const vector<string> & map, const vector<str
             }
             if(q.snake.h.x + d.x == q.snake.b[1].x && q.snake.h.y + d.y == q.snake.b[1].y) continue;
             if(!valid) continue;
-            double tempPw {q.points + 0.01};  // move points
+
+            double tempPw {};
             Snake tempSn {q.snake};
             bool tookPower {};
-            if(map[q.snake.h.y + d.y][q.snake.h.x + d.x] == 'P'){
-                tempPw += 5 - (0.1 * q.depth);
-                tookPower = true;
-            }
+            if(mp[q.snake.h.y + d.y][q.snake.h.x + d.x] == 'P') tookPower = true;
+            tempPw = q.points + calculatePoints(mp, tookPower, q.depth, powerDistanceMap.at(target)[q.snake.h.y + d.y][q.snake.h.x + d.x]);
+            cerr << target.x << ' ' << target.y << '\n';
             tempSn.b = bodyMove(game, fullMap, q.snake.b, d, tookPower);
             tempSn.h.y = tempSn.b[0].y;
             tempSn.h.x = tempSn.b[0].x;
@@ -280,7 +310,7 @@ int main()
         oppSn.push_back(opp_snakebot_id);
     }
 
-    vector<vector<vector<int>>> powerDistanceMap;
+    unordered_map<Coord, vector<vector<int>>> powerDistanceMap;
 
     // game loop
     while (1) {
@@ -321,19 +351,28 @@ int main()
             snake.push_back({snakebot_id, body, b[0], b, "WAIT", mySnake});
         }
 
+        powers.erase(std::remove_if(powers.begin(), powers.end(), [&](const Coord& p) {
+            for (const auto & s : snake) {
+                if (!s.mySnake) {
+                    if (abs(p.x - s.h.x) + abs(p.y - s.h.y) == 1) {
+                        return true; 
+                    }
+                }
+            }
+            return false;
+        }), powers.end());
+
         //   1 sek bonus fiirst turn usage
         if(game.firstTurn){
             game.firstTurn = 0;
-            powerDistanceMap.resize(game.pwCnt);
-            for(auto& i : powerDistanceMap){
-                i.resize(game.height);
-                for(auto& j : i){
+            for(auto& i : powers){
+                powerDistanceMap[i].resize(game.height);
+                for(auto& j : powerDistanceMap[i]){
                     j.resize(game.width);
                 }
             }
-            for(size_t i {}; i < powerDistanceMap.size(); ++i){
-                findPowerDistance(game, powerDistanceMap[i], {powers[i].x, powers[i].y}, field);
-                PRINT(powerDistanceMap[i]);
+            for(size_t i {}; i < powers.size(); ++i){
+                findPowerDistance(game, powerDistanceMap[powers[i]], {powers[i].x, powers[i].y}, field);
             }
         }
 
@@ -357,7 +396,7 @@ int main()
                 fullMap[i.y][i.x] = '0';
             }
 
-            i.nextMove = simpleBfs(game, mapSn, fullMap, i, powers, 5);
+            i.nextMove = simpleBfs(game, mapSn, fullMap, i, powerDistanceMap, powers, 5);
             
             if(i.nextMove == "UP"){
                 nextMoves.push_back({i.h.x, i.h.y - 1});
@@ -383,7 +422,5 @@ int main()
             }
         }
         cout << command << endl;
-
-        PRINT(snake);
     }
 }
