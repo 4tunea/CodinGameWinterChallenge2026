@@ -26,7 +26,7 @@ namespace std {
     template <>
     struct hash<Coord> {
         size_t operator()(const Coord& c) const {
-            return hash<int>()(c.x) ^ (hash<int>()(c.y) << 1);
+            return hash<int>()(c.x) ^ (hash<int>()(c.y) + 0x9e3779b9 + (hash<int>()(c.x) << 6) + (hash<int>()(c.x) >> 2));
         }
     };
 }
@@ -219,9 +219,9 @@ string simpleBfs(const Game & game, const vector<string> & mp, const vector<stri
         for(auto & i : powers){
             if(minDistance > powerDistanceMap.at(i)[q.snake.h.y][q.snake.h.x]){
                 minDistance = powerDistanceMap.at(i)[q.snake.h.y][q.snake.h.x];
-                target = {i};
+                target = i;
             }
-        }
+    }
 
         for(auto & d : dir){
             bool valid {1};
@@ -234,6 +234,7 @@ string simpleBfs(const Game & game, const vector<string> & mp, const vector<stri
             }
             if(q.snake.h.x + d.x == q.snake.b[1].x && q.snake.h.y + d.y == q.snake.b[1].y) continue;
             if(!valid) continue;
+            if(target.x == -1) continue;
 
             double tempPw {};
             Snake tempSn {q.snake};
@@ -351,17 +352,6 @@ int main()
             snake.push_back({snakebot_id, body, b[0], b, "WAIT", mySnake});
         }
 
-        powers.erase(std::remove_if(powers.begin(), powers.end(), [&](const Coord& p) {
-            for (const auto & s : snake) {
-                if (!s.mySnake) {
-                    if (abs(p.x - s.h.x) + abs(p.y - s.h.y) == 1) {
-                        return true; 
-                    }
-                }
-            }
-            return false;
-        }), powers.end());
-
         //   1 sek bonus fiirst turn usage
         if(game.firstTurn){
             game.firstTurn = 0;
@@ -375,6 +365,17 @@ int main()
                 findPowerDistance(game, powerDistanceMap[powers[i]], {powers[i].x, powers[i].y}, field);
             }
         }
+
+        powers.erase(std::remove_if(powers.begin(), powers.end(), [&](const Coord& p) {
+            for (const auto & s : snake) {
+                if (!s.mySnake) {
+                    if (abs(p.x - s.h.x) + abs(p.y - s.h.y) == 1) {
+                        return true; 
+                    }
+                }
+            }
+            return false;
+        }), powers.end());
 
         //  ----------  MAIN LOGIC
         vector<Coord> nextMoves {};
@@ -396,7 +397,7 @@ int main()
                 fullMap[i.y][i.x] = '0';
             }
 
-            i.nextMove = simpleBfs(game, mapSn, fullMap, i, powerDistanceMap, powers, 5);
+            i.nextMove = simpleBfs(game, mapSn, fullMap, i, powerDistanceMap, powers, 6);
             
             if(i.nextMove == "UP"){
                 nextMoves.push_back({i.h.x, i.h.y - 1});
