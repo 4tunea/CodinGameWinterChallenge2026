@@ -1,11 +1,5 @@
 #include <bits/stdc++.h>
 
-/** TO DO LIST
-*  1 on 1 power fight (nes dabar atiduodu opps viska)
-*  viengubas sokinejimas arba keli judesiai pasikartojantys, geriau pakeisti i sekanti poweri pagal toluma
-*  
-**/
-
 using namespace std;
 
 struct Coord{
